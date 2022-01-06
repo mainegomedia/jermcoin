@@ -1,8 +1,47 @@
 const express = require('express')
 const app = express()
+const bodyParser = require('body-parser');
+const Blockchain = require('./blockchain');
+const uuid = require("uuid");
+uuid.v1();
 
-app.get('/', function (req, res) {
-  res.send('Please change')
+const nodeAddress = uuid.v1().split("-").join('');
+
+const jermcoin = new Blockchain();
+
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: false }));
+
+app.get('/blockchain', function (req, res) {
+  res.send(jermcoin);
+}) 
+
+app.post('/transaction', function (req, res) {
+  const blockIndex = jermcoin.createNewTransaction(req.body.amount, req.body.sender, req.body.recipient);
+  res.json({ note: `Transaction will be added in block ${blockIndex}`})
 })
 
-app.listen(3000)
+app.get('/mine', function (req, res) {
+  const lastBlock = jermcoin.getLastBlock();
+  const previousBlockHash = lastBlock['hash']
+  const currentBlockData = {
+    transactions: jermcoin.newPendingTransactions,
+    index: lastBlock['index'] + 1
+  };
+ 
+  const nonce = jermcoin.proofOfWork(previousBlockHash, currentBlockData);
+  const blockHash = jermcoin.hashBlock(previousBlockHash, currentBlockData, nonce);
+
+  jermcoin.createNewTransaction(12.5, "00", nodeAddress)
+
+  const newBlock = jermcoin.createNewBlock(nonce, previousBlockHash, blockHash);
+  res.json({
+    note: "New block mined successfully",
+    block: newBlock
+  }); 
+})   
+
+
+app.listen(3000, function() {
+  console.log('Listening on port 3000...');
+});
